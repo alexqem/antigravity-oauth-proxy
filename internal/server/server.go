@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
@@ -131,7 +132,8 @@ func (s *Server) setupRoutes() {
 		s.mux.HandleFunc("/admin/tokens", s.adminMiddleware(s.tokensHandler))
 		s.mux.HandleFunc("/admin/status", s.adminMiddleware(s.tokenStatusHandler))
 	}
-	s.mux.HandleFunc("/v1beta/models/", s.adminMiddleware(s.streamGenerateContentHandler))
+	s.mux.HandleFunc("/v1beta/models", s.adminMiddleware(s.geminiModelsHandler))
+	s.mux.HandleFunc("/v1beta/models/", s.adminMiddleware(s.geminiModelsRouter))
 	s.mux.HandleFunc("/v1/models/", s.modelsHandler)
 	s.mux.HandleFunc("/v1/models", s.modelsHandler)
 	s.mux.HandleFunc("/v1/chat/completions", s.adminMiddleware(s.openAIChatCompletionsHandler))
@@ -141,6 +143,16 @@ func (s *Server) setupRoutes() {
 	mcpHandler := s.adminMiddleware(s.mcpHandler())
 	s.mux.HandleFunc("/mcp", mcpHandler)
 	s.mux.HandleFunc("/mcp/", mcpHandler)
+}
+
+// geminiModelsRouter sends /v1beta/models/{model}:{action} to generation and
+// the remaining paths under /v1beta/models/ to the model listing.
+func (s *Server) geminiModelsRouter(w http.ResponseWriter, r *http.Request) {
+	if strings.Contains(r.URL.Path, ":") {
+		s.streamGenerateContentHandler(w, r)
+		return
+	}
+	s.geminiModelsHandler(w, r)
 }
 
 // ServeHTTP implements http.Handler interface

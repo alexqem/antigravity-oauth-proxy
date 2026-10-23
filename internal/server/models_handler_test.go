@@ -65,6 +65,9 @@ func TestIsSupportedModel(t *testing.T) {
 		supported bool
 		family    string
 	}{
+		{"gemini-4-argon-low", true, "gemini"},
+		{"gemini-4-argon-medium", true, "gemini"},
+		{"gemini-4-argon-high", true, "gemini"},
 		{"gemini-3.8-flash-high", true, "gemini"},
 		{"gemini-3.7-flash-high", true, "gemini"},
 		{"gemini-3.6-flash-low", true, "gemini"},
@@ -155,5 +158,48 @@ func TestNewOpenAIModelOwnedBy(t *testing.T) {
 				t.Errorf("newOpenAIModel(%q).OwnedBy = %q, want %q", tc.modelID, got, tc.ownedBy)
 			}
 		})
+	}
+}
+
+func TestGeminiModelsRoutes(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"models":{"claude-opus-4-6-thinking":{},"claude-opus-5-5":{},
+			"gemini-3.8-flash-low":{"maxTokens":1048576,"maxOutputTokens":65536,"supportsThinking":true}}}`))
+	}))
+	defer upstream.Close()
+	previousEndpoints := antigravity.Endpoints
+	antigravity.Endpoints = []string{upstream.URL}
+	t.Cleanup(func() { antigravity.Endpoints = previousEndpoints })
+	srv := newMCPTestServer(t)
+
+	get := func(path string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("Authorization", "Bearer "+testAdminKey)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+		return rec
+	}
+
+	for _, path := range []string{"/v1beta/models?pageSize=1000", "/v1beta/models/?pageSize=1000"} {
+		rec := get(path)
+		var listing geminiModelsListResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &listing); err != nil {
+			t.Fatalf("%s: HTTP %d: %s", path, rec.Code, rec.Body.String())
+		}
+		if rec.Code != http.StatusOK || len(listing.Models) != 2 ||
+			listing.Models[0].Name != "models/claude-opus-5-5" || listing.Models[1].Name != "models/gemini-3.8-flash-low" {
+			t.Fatalf("%s: unexpected listing: HTTP %d: %s", path, rec.Code, rec.Body.String())
+		}
+		if gemini := listing.Models[1]; gemini.InputTokenLimit != 1048576 || gemini.OutputTokenLimit != 65536 || !gemini.Thinking {
+			t.Errorf("%s: upstream limits not reported: %+v", path, gemini)
+		}
+	}
+
+	if rec := get("/v1beta/models/gemini-3.8-flash-low"); rec.Code != http.StatusOK {
+		t.Errorf("models.get returned HTTP %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := get("/v1beta/models/claude-opus-4-6-thinking"); rec.Code != http.StatusNotFound {
+		t.Errorf("removed model returned HTTP %d", rec.Code)
 	}
 }

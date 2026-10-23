@@ -23,8 +23,11 @@ type AvailableModel struct {
 	// for a different model entirely; and the *-flash-tiered IDs have no label at
 	// all. Report the model ID instead — it is unique and is what callers must
 	// pass back to us anyway.
-	DisplayName string          `json:"displayName"`
-	QuotaInfo   json.RawMessage `json:"quotaInfo,omitempty"`
+	DisplayName      string          `json:"displayName"`
+	MaxTokens        int             `json:"maxTokens,omitempty"`
+	MaxOutputTokens  int             `json:"maxOutputTokens,omitempty"`
+	SupportsThinking bool            `json:"supportsThinking,omitempty"`
+	QuotaInfo        json.RawMessage `json:"quotaInfo,omitempty"`
 }
 
 func (c *Client) FetchAvailableModels(ctx context.Context) (*FetchAvailableModelsResponse, error) {
