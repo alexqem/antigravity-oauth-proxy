@@ -158,6 +158,47 @@ func TestResolveModelForThinking(t *testing.T) {
 			expected:      "gemini-3.7-flash-tiered",
 		},
 		{
+			name:     "Gemini 4 Argon bare defaults to medium",
+			model:    "gemini-4-argon",
+			expected: "gemini-4-argon-medium",
+		},
+		{
+			name:          "Gemini 4 Argon low",
+			model:         "gemini-4-argon",
+			thinkingLevel: "LOW",
+			expected:      "gemini-4-argon-low",
+		},
+		{
+			name:          "Gemini 4 Argon minimal maps to low",
+			model:         "gemini-4-argon",
+			thinkingLevel: "MINIMAL",
+			expected:      "gemini-4-argon-low",
+		},
+		{
+			name:          "Gemini 4 Argon thinking off maps to low",
+			model:         "gemini-4-argon",
+			thinkingLevel: "NONE",
+			expected:      "gemini-4-argon-low",
+		},
+		{
+			name:          "Gemini 4 Argon medium",
+			model:         "gemini-4-argon-preview",
+			thinkingLevel: "MEDIUM",
+			expected:      "gemini-4-argon-medium",
+		},
+		{
+			name:          "Gemini 4 Argon high",
+			model:         "gemini-4-argon",
+			thinkingLevel: "HIGH",
+			expected:      "gemini-4-argon-high",
+		},
+		{
+			name:          "Gemini 4 Argon direct ID wins over level",
+			model:         "gemini-4-argon-high",
+			thinkingLevel: "LOW",
+			expected:      "gemini-4-argon-high",
+		},
+		{
 			name:          "Gemini 3.8 Flash default",
 			model:         "gemini-3.8-flash",
 			thinkingLevel: "",
@@ -232,6 +273,24 @@ func TestResolveModelForThinking(t *testing.T) {
 				t.Fatalf("resolveModelForThinking(%q, %q) = %q, want %q", tc.model, tc.thinkingLevel, got, tc.expected)
 			}
 		})
+	}
+}
+
+func TestResolveModelForThinkingArgonBudgetZeroUsesLow(t *testing.T) {
+	zero := 0
+	req := antigravity.GeminiInternalRequest{
+		GenerationConfig: &antigravity.GeminiGenerationConfig{
+			ThinkingConfig: &antigravity.ThinkingConfig{ThinkingBudget: &zero},
+		},
+	}
+	if got := resolveModelForThinking("gemini-4-argon", req); got != modelGemini4ArgonLow {
+		t.Fatalf("resolveModelForThinking(gemini-4-argon, budget 0) = %q, want %q", got, modelGemini4ArgonLow)
+	}
+}
+
+func TestResolveModelForThinkingIgnoresNonGeminiArgon(t *testing.T) {
+	if got := resolveModelForThinking("acme-argon-7b", antigravity.GeminiInternalRequest{}); got != "acme-argon-7b" {
+		t.Fatalf("resolveModelForThinking(acme-argon-7b) = %q, want unchanged", got)
 	}
 }
 

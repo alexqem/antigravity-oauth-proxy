@@ -249,6 +249,17 @@ func TestPrepareAntigravityRequestAppliesGemini38ThinkingPreset(t *testing.T) {
 			incomingLevel: "MINIMAL",
 			wantLevel:     "medium",
 		},
+		{
+			name:      "argon defaults from suffix",
+			model:     "gemini-4-argon-low",
+			wantLevel: "low",
+		},
+		{
+			name:          "argon suffix overrides incoming level",
+			model:         "gemini-4-argon-high",
+			incomingLevel: "LOW",
+			wantLevel:     "high",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -397,6 +408,7 @@ func TestPrepareAntigravityRequestClampsMaxOutputTokens(t *testing.T) {
 		{"gemini-3-flash-agent", 65536, 65536},
 		{"gemini-3.7-flash-high", 65536, 65536},
 		{"gemini-3.8-flash-high", 65536, 65536},
+		{"gemini-4-argon-high", 131072, 65536},
 		{"gemini-3-flash", 65536, 65536},
 	}
 
@@ -466,7 +478,7 @@ func TestApplyHeadersMatchesAntigravityCLI(t *testing.T) {
 	if got := header.Get("Content-Type"); got != "application/json" {
 		t.Fatalf("Content-Type = %q", got)
 	}
-	if got := header.Get("User-Agent"); !strings.HasPrefix(got, "antigravity/cli/1.1.13 (aidev_client;") {
+	if got := header.Get("User-Agent"); !strings.HasPrefix(got, "antigravity/cli/1.4.6 (aidev_client;") {
 		t.Fatalf("User-Agent = %q", got)
 	}
 	if got := header.Get("X-Goog-Api-Client"); got != "" {

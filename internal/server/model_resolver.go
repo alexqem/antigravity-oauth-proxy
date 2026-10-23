@@ -26,6 +26,9 @@ const (
 	modelGemini38FlashMedium  = "gemini-3.8-flash-medium"
 	modelGemini38FlashHigh    = "gemini-3.8-flash-high"
 	modelGemini38FlashTiered  = "gemini-3.8-flash-tiered"
+	modelGemini4ArgonLow      = "gemini-4-argon-low"
+	modelGemini4ArgonMedium   = "gemini-4-argon-medium"
+	modelGemini4ArgonHigh     = "gemini-4-argon-high"
 	modelGemini31FlashLite    = "gemini-3.1-flash-lite"
 	modelGemini31FlashImage   = "gemini-3.1-flash-image"
 )
@@ -56,6 +59,23 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 			return modelGemini31ProLow
 		default:
 			return modelGemini31ProLow
+		}
+
+	case isGemini4ArgonModel(modelLower):
+		// Upstream only serves the effort-suffixed IDs; the bare name 404s.
+		// Without an explicit level, use medium, which upstream reports as its
+		// default agent model. Thinking-off requests (a disabling level or
+		// thinkingBudget 0) use low, and the budget-0 config is passed through.
+		if thinkingBudgetDisabled(req) {
+			return modelGemini4ArgonLow
+		}
+		switch thinkingLevel {
+		case "high":
+			return modelGemini4ArgonHigh
+		case "minimal", "low", "none", "unspecified":
+			return modelGemini4ArgonLow
+		default:
+			return modelGemini4ArgonMedium
 		}
 
 	case isGemini38FlashModel(modelLower):
@@ -156,6 +176,9 @@ func isKnownUpstreamModelID(modelLower string) bool {
 		modelGemini38FlashMedium,
 		modelGemini38FlashLow,
 		modelGemini38FlashTiered,
+		modelGemini4ArgonLow,
+		modelGemini4ArgonMedium,
+		modelGemini4ArgonHigh,
 		modelGemini31ProHighAgent:
 		return true
 	default:
@@ -172,6 +195,18 @@ func normalizedThinkingLevel(req antigravity.GeminiInternalRequest) string {
 
 func isGemini31ProModel(modelLower string) bool {
 	return strings.Contains(modelLower, "3.1-pro") || modelLower == "gemini-pro-agent"
+}
+
+func thinkingBudgetDisabled(req antigravity.GeminiInternalRequest) bool {
+	if req.GenerationConfig == nil || req.GenerationConfig.ThinkingConfig == nil {
+		return false
+	}
+	budget := req.GenerationConfig.ThinkingConfig.ThinkingBudget
+	return budget != nil && *budget == 0
+}
+
+func isGemini4ArgonModel(modelLower string) bool {
+	return strings.Contains(modelLower, "gemini") && strings.Contains(modelLower, "argon")
 }
 
 func isGemini38FlashModel(modelLower string) bool {
