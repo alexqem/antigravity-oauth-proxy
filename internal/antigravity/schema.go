@@ -94,11 +94,33 @@ func ConvertSchema(input map[string]interface{}) *GeminiParameterSchema {
 		}
 	}
 
-	if i, ok := input["items"].(map[string]interface{}); ok {
-		output.Items = ConvertSchema(i)
+	if i, ok := input["items"]; ok {
+		switch item := i.(type) {
+		case map[string]interface{}:
+			output.Items = ConvertSchema(item)
+		case []interface{}:
+			// Draft-07 tuple-style items: Gemini requires a single schema for
+			// every array. Convert the first object element if one exists; a
+			// missing fallback is applied below.
+			for _, el := range item {
+				if m, ok := el.(map[string]interface{}); ok {
+					output.Items = ConvertSchema(m)
+					break
+				}
+			}
+		}
 		if output.Type == "" {
 			output.Type = "ARRAY"
 		}
+	}
+
+	// Gemini rejects any ARRAY schema that does not declare its items, while
+	// OpenAI's validation is looser: clients routinely send arrays with no
+	// items at all, or nested arrays whose element spec omits items. Fill in
+	// a permissive fallback so such schemas stay valid upstream instead of
+	// failing the whole request with a 400.
+	if output.Type == "ARRAY" && output.Items == nil {
+		output.Items = &GeminiParameterSchema{Type: "STRING"}
 	}
 
 	return output
