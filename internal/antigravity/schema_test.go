@@ -186,7 +186,7 @@ func TestConvertSchema(t *testing.T) {
 				"items": {}
 			}`,
 			expected: &GeminiParameterSchema{
-				Type: "ARRAY",
+				Type:  "ARRAY",
 				Items: &GeminiParameterSchema{},
 			},
 		},
